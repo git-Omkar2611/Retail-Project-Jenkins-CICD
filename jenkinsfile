@@ -1,27 +1,93 @@
-pipeline{
+pipeline {
     agent any
+    
+    environment {
+        LABS = credentials('labcreds')  // Ensure 'labcreds' contains both username and password
+        JAVA_HOME = '/opt/bitnami/java'
+        PATH = "${env.JAVA_HOME}/bin:${env.PATH}"
+    }
+    
+    stages {
+        stage('Setup Virtual Environment') {
+            steps {
+                script {
+                    try {
+                        sh 'python3 -m venv retail_pipeline_venv'
+                        sh './retail_pipeline_venv/bin/pip install --upgrade pip'
+                        sh './retail_pipeline_venv/bin/pip install pipenv'
+                    } catch (Exception e) {
+                        echo "Error in setting up the virtual environment: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error("Failing pipeline due to virtual environment setup error.")
+                    }
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                script {
+                    try {
+                        sh './retail_pipeline_venv/bin/pipenv install'
+                    } catch (Exception e) {
+                        echo "Error in installing dependencies: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error("Failing pipeline due to dependency installation error.")
+                    }
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                script {
+                    try {
+                        sh 'echo $JAVA_HOME'
+                        sh 'echo $PATH'
+                        sh './retail_pipeline_venv/bin/pipenv run pytest'
+                    } catch (Exception e) {
+                        echo "Error in running tests: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error("Failing pipeline due to test errors.")
+                    }
+                }
+            }
+        }
+        stage('Package') {
+            steps {
+                script {
+                    try {
+                        sh 'zip -r retailproject.zip . -x "retail_pipeline_venv/*"'
+                    } catch (Exception e) {
+                        echo "Error in packaging: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error("Failing pipeline due to packaging error.")
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                script {
+                    try {
+                        sh 'sshpass -p $LABS_PSW scp -o StrictHostKeyChecking=no -r retailproject.zip $LABS_USR@g02.itversity.com:/home/itv015278/retailproject'
+                    } catch (Exception e) {
+                        echo "Error in deployment: ${e.getMessage()}"
+                        currentBuild.result = 'FAILURE'
+                        error("Failing pipeline due to deployment error.")
+                    }
+                }
+            }
+        }
+    }
 
-    stages{
-        stage('Build'){
-            steps{
-                echo "Build completed successfully"
-            }
+    post {
+        always {
+            echo "Pipeline execution finished."
         }
-        stage('Test'){
-            steps{
-                echo "Test completed successfully"
-            }
+        success {
+            echo "Pipeline completed successfully!"
         }
-        stage('Package'){
-            steps{
-                echo "Package completed successfully"
-            }
+        failure {
+            echo "Pipeline failed. Check the logs for details."
         }
-        stage('Deploy'){
-            steps{
-                echo "Deploy  completed successfully"
-            }
-        }
-        
     }
 }
