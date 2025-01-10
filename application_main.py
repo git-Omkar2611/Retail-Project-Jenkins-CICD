@@ -8,7 +8,7 @@ from lib.logger import Log4j
 if __name__ == '__main__' :
 
     if len(sys.argv) < 2 :
-        print("Please Specify the environment")
+        print("Please Specify the environment in cmd line")
         sys.exit(-1)
 
     job_run_env = sys.argv[1]
