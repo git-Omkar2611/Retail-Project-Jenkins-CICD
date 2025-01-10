@@ -8,6 +8,7 @@ def spark():
     "Creates Spark Session"
     sparkSession = Utils.get_spark_session("LOCAL")
     yield sparkSession
+    "Terminating Spark Session"
     sparkSession.stop() #added to release resources
 
 @pytest.fixture
